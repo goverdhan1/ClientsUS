@@ -31,6 +31,7 @@ class Settings:
     max_per_run: int
     per_state_cap: int
     cooldown_days: int
+    send_delay_seconds: float
     leads_csv: Path
     template_path: Path
     state_dir: Path
@@ -51,6 +52,7 @@ class Settings:
             max_per_run=int(env.get("MAX_PER_RUN", "50")),
             per_state_cap=int(env.get("PER_STATE_CAP", "5")),
             cooldown_days=int(env.get("COOLDOWN_DAYS", "30")),
+            send_delay_seconds=float(env.get("SEND_DELAY_SECONDS", "3")),
             leads_csv=root / env.get("LEADS_CSV", "data/leads.csv"),
             template_path=root / "prospect_pipeline" / "templates" / "outreach_email.txt",
             state_dir=root / "state",

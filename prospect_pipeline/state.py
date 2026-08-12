@@ -21,6 +21,10 @@ def recently_contacted(path: Path, email: str, cooldown_days: int, today: date |
     cutoff = today - timedelta(days=cooldown_days)
     email = email.strip().lower()
     for row in _load_log(path):
+        # Only successful sends count toward the cooldown; a failed attempt
+        # must not block retrying the address on a later run.
+        if row.get("status") != "sent":
+            continue
         if row.get("email", "").strip().lower() != email:
             continue
         try:
