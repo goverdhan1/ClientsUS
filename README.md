@@ -23,7 +23,10 @@ personal data or sending spam.
    `python -m prospect_pipeline dry-run` renders drafts into `outbox/` without
    sending. `python -m prospect_pipeline send` sends via `smtp.gmail.com` after a
    confirmation, enforces per-state caps, a 30-day per-address cooldown, and the
-   suppression list (`python -m prospect_pipeline suppress a@b.com`).
+   suppression list (`python -m prospect_pipeline suppress a@b.com`). Sends are
+   paced (`SEND_DELAY_SECONDS`, default 3s) and logged one by one, so a single
+   rejected address neither aborts the batch nor triggers the cooldown. Every
+   email carries `Date` and `List-Unsubscribe` headers for deliverability.
 
 ## Setup
 
