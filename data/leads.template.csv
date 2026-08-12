@@ -1,0 +1,4 @@
+business_name,contact_name,email,state,services_interest,source,consent_basis,consent_date,notes
+Example Dental Studio,Jane,jane@example.com,TX,website redesign,"your inquiry through our website contact form",explicit_opt_in,2026-08-01,"asked for a quote"
+Example City Procurement,,bids@example.gov,WA,mobile app development,"your SAM.gov solicitation EX-12345",rfp_public_request,,"respond per the RFP instructions"
+Example Fitness Co,Marcus,marcus@example.org,CO,custom booking software,"existing client since 2025",existing_customer,2025-11-03,"upsell: member portal"
