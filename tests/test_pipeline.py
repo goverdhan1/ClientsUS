@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import smtplib
 import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
+from unittest import mock
 
 from prospect_pipeline.config import Settings
 from prospect_pipeline.consent import SuppressionList
-from prospect_pipeline.emailer import build_message, render, write_dry_run
+from prospect_pipeline.emailer import build_message, render, send_all, write_dry_run
 from prospect_pipeline.leads import select_batch
 from prospect_pipeline.models import Lead, load_leads_csv
 from prospect_pipeline.state import recently_contacted, record_send
@@ -31,6 +33,7 @@ def make_settings(root: Path) -> Settings:
         max_per_run=50,
         per_state_cap=1,
         cooldown_days=30,
+        send_delay_seconds=0,
         leads_csv=root / "leads.csv",
         template_path=root / "template.txt",
         state_dir=root / "state",
@@ -118,6 +121,12 @@ class SelectionTests(unittest.TestCase):
             self.assertFalse(recently_contacted(log, "x@example.com", 5))
             self.assertFalse(recently_contacted(log, "other@example.com", 30))
 
+    def test_failed_send_does_not_trigger_cooldown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "log.csv"
+            record_send(log, make_lead("y@example.com"), "failed", detail="550 rejected")
+            self.assertFalse(recently_contacted(log, "y@example.com", 30))
+
 
 class RenderTests(unittest.TestCase):
     def tokens(self):
@@ -157,6 +166,11 @@ class MessageTests(unittest.TestCase):
             self.assertEqual(msg["To"], "lead@example.com")
             self.assertEqual(msg["Subject"], "website development for Biz")
             self.assertIn("Sender <sender@example.com>", msg["From"])
+            self.assertIsNotNone(msg["Date"])
+            self.assertEqual(
+                msg["List-Unsubscribe"],
+                "<mailto:sender@example.com?subject=unsubscribe>",
+            )
             self.assertIn("1 Main St, Austin, TX 78701", msg.get_content())
             out = write_dry_run(msg, settings.outbox_dir)
             self.assertTrue(out.exists())
@@ -167,6 +181,26 @@ class MessageTests(unittest.TestCase):
             settings = make_settings(Path(tmp))
             settings.sender_postal_address = ""
             self.assertTrue(any("SENDER_POSTAL_ADDRESS" in m for m in settings.missing_for_send()))
+
+
+class SendAllTests(unittest.TestCase):
+    def test_rejected_recipient_does_not_abort_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = make_settings(Path(tmp))
+            messages = [
+                build_message(make_lead(f"u{i}@example.com"), settings, TEMPLATE)
+                for i in range(3)
+            ]
+            with mock.patch("smtplib.SMTP") as smtp_cls:
+                smtp = smtp_cls.return_value.__enter__.return_value
+                smtp.send_message.side_effect = [
+                    None,
+                    smtplib.SMTPRecipientsRefused({"u1@example.com": (550, b"no such user")}),
+                    None,
+                ]
+                sent, failures = send_all(settings, messages, delay_seconds=0)
+        self.assertEqual(sent, ["u0@example.com", "u2@example.com"])
+        self.assertEqual([recipient for recipient, _ in failures], ["u1@example.com"])
 
 
 if __name__ == "__main__":

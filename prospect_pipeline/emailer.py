@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import smtplib
 import string
+import time
 from email.message import EmailMessage
+from email.utils import formatdate
 from pathlib import Path
 
 from .config import Settings
@@ -53,6 +55,11 @@ def build_message(lead: Lead, settings: Settings, template: str) -> EmailMessage
     )
     msg["To"] = lead.normalized_email
     msg["Subject"] = subject
+    # Some spam filters penalize a missing Date header; smtplib does not add one.
+    msg["Date"] = formatdate(localtime=True)
+    if settings.smtp_user:
+        # Matches the reply-"unsubscribe" opt-out offered in the template.
+        msg["List-Unsubscribe"] = f"<mailto:{settings.smtp_user}?subject=unsubscribe>"
     msg.set_content(rest.strip() + "\n")
     return msg
 
@@ -64,14 +71,30 @@ def write_dry_run(msg: EmailMessage, outbox_dir: Path) -> Path:
     return target
 
 
-def send_all(settings: Settings, messages: list[EmailMessage]) -> list[str]:
-    """Send via Gmail SMTP (STARTTLS). Returns the addresses that were sent."""
-    sent = []
+def send_all(
+    settings: Settings,
+    messages: list[EmailMessage],
+    delay_seconds: float = 0.0,
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """Send via Gmail SMTP (STARTTLS), one message at a time.
+
+    Returns (sent, failures): the addresses that were sent, and a list of
+    (recipient, error) pairs for messages Gmail rejected. One bad recipient
+    no longer aborts the rest of the batch. A short delay between sends is
+    kinder to Gmail's sending limits.
+    """
+    sent: list[str] = []
+    failures: list[tuple[str, str]] = []
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
         smtp.ehlo()
         smtp.starttls()
         smtp.login(settings.smtp_user, settings.smtp_app_password)
-        for msg in messages:
-            smtp.send_message(msg)
-            sent.append(msg["To"])
-    return sent
+        for index, msg in enumerate(messages):
+            try:
+                smtp.send_message(msg)
+                sent.append(msg["To"])
+            except (smtplib.SMTPException, OSError) as exc:
+                failures.append((msg["To"], str(exc)))
+            if delay_seconds > 0 and index < len(messages) - 1:
+                time.sleep(delay_seconds)
+    return sent, failures

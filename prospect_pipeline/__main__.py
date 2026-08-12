@@ -75,12 +75,19 @@ def cmd_send(args) -> int:
         if reply != "send":
             print("Aborted.")
             return 1
-    sent = send_all(settings, [msg for _, msg in messages])
+    sent, failures = send_all(
+        settings, [msg for _, msg in messages], settings.send_delay_seconds
+    )
     sent_set = set(sent)
+    failed = dict(failures)
     for lead, msg in messages:
         if msg["To"] in sent_set:
             state_mod.record_send(settings.sent_log_path, lead, "sent")
-    print(f"Sent {len(sent)} email(s). Logged to {settings.sent_log_path}.")
+        elif msg["To"] in failed:
+            state_mod.record_send(settings.sent_log_path, lead, "failed", detail=failed[msg["To"]])
+    for recipient, error in failures:
+        print(f"FAILED {recipient}: {error}", file=sys.stderr)
+    print(f"Sent {len(sent)} email(s), {len(failures)} failed. Logged to {settings.sent_log_path}.")
     return 0
 
 
