@@ -1,0 +1,14 @@
+Subject: {services_interest} support for {business_name}
+
+Hi {contact_name},
+
+I noticed {source_phrase}, and it looks like {business_name} may be looking for help with {services_interest}.
+
+I'm {sender_name} from {sender_company}. We design and build websites, custom software, and mobile apps for businesses across the US. If useful, I'd be glad to offer a no-obligation quote or a short call about what you're planning.
+
+If this isn't relevant, just reply with "unsubscribe" and I won't contact you again.
+
+Best regards,
+{sender_name}
+{sender_company}
+{sender_postal_address}
