@@ -199,17 +199,31 @@ def cmd_open_web(args) -> int:
 
 def cmd_daily_search(args) -> int:
     settings = Settings.from_env()
+    if not settings.leads_csv.exists():
+        settings.leads_csv.parent.mkdir(parents=True, exist_ok=True)
+        settings.leads_csv.write_text(
+            "business_name,contact_name,email,phone,state,services_interest,source,"
+            "consent_basis,consent_date,whatsapp_consent_date,notes,external_id\n",
+            encoding="utf-8",
+        )
+        print(f"Created empty {settings.leads_csv}.")
     try:
-        report_path = run_daily_search(
+        report_path, sync_summary = run_daily_search(
             limit_per_query=args.limit,
             report_dir=settings.reports_dir,
+            leads_csv=settings.leads_csv,
+            sync_leads=not args.no_sync,
         )
     except Exception as exc:
         print(f"daily-search failed: {exc}", file=sys.stderr)
         return 1
     print(f"Daily search complete. Report written to:\n  {report_path}")
-    print("\nReview the report, then add consented contacts to data/leads.csv.")
-    print("Run 'dry-run' / 'whatsapp-dry-run' before sending anything.")
+    if sync_summary:
+        print(
+            f"Leads updated: {sync_summary['added']} new contact(s) added to {settings.leads_csv} "
+            f"({sync_summary['skipped']} skipped)."
+        )
+    print("\nReview the report and leads.csv, then run 'dry-run' before sending.")
     return 0
 
 
@@ -253,6 +267,7 @@ def main() -> int:
         help="Run all configured US development-demand searches (for Task Scheduler)",
     )
     p_daily.add_argument("--limit", type=int, default=5, help="Max results per query/source")
+    p_daily.add_argument("--no-sync", action="store_true", help="Skip auto-updating data/leads.csv")
     p_daily.set_defaults(func=cmd_daily_search)
 
     args = parser.parse_args()

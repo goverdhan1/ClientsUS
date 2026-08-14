@@ -51,15 +51,37 @@ def fetch_sam_gov(keyword: str = "website development", limit: int = 10) -> list
         "postedTo": today.strftime("%m/%d/%Y"),
     })
     data = _get_json(f"https://api.sam.gov/opportunities/v2/search?{params}")
-    return [
-        {
+    results = []
+    for item in data.get("opportunitiesData", []):
+        poc_email = ""
+        poc_name = ""
+        for poc in item.get("pointOfContact") or []:
+            if isinstance(poc, dict) and poc.get("email"):
+                poc_email = poc["email"].strip()
+                poc_name = (poc.get("fullName") or poc.get("fullname") or "").strip()
+                break
+        state = "DC"
+        pop = item.get("placeOfPerformance") or {}
+        if isinstance(pop, dict):
+            st = pop.get("state") or {}
+            if isinstance(st, dict) and st.get("code"):
+                state = str(st["code"]).upper()[:2]
+        office = item.get("officeAddress") or {}
+        if state == "DC" and isinstance(office, dict) and office.get("state"):
+            state = str(office["state"]).upper()[:2]
+        results.append({
             "title": item.get("title", ""),
-            "organization": item.get("department", "") or item.get("office", ""),
+            "organization": item.get("fullParentPathName", "")
+            or item.get("department", "")
+            or item.get("office", ""),
             "url": item.get("uiLink", ""),
             "posted": item.get("postedDate", ""),
-        }
-        for item in data.get("opportunitiesData", [])
-    ]
+            "email": poc_email,
+            "contact_name": poc_name,
+            "state": state,
+            "solicitation_number": item.get("solicitationNumber", ""),
+        })
+    return results
 
 
 def fetch_datagov(query: str = "website development RFP", limit: int = 10) -> list[dict]:
