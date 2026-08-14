@@ -1,0 +1,5 @@
+Hi {contact_name}, this is {sender_name} from {sender_company}.
+
+I saw that {business_name} may be looking for help with {services_interest}. We build websites, custom software, and mobile apps for US businesses.
+
+Happy to share a quick quote or answer questions if useful. Reply STOP to opt out.

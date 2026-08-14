@@ -16,6 +16,17 @@ from datetime import date, timedelta
 
 USER_AGENT = "prospect-pipeline/0.1 (+consent-first outreach tooling)"
 
+# Service types to search each daily run (keyword, source).
+DEFAULT_SERVICE_QUERIES: list[tuple[str, str]] = [
+    ("website development", "sam"),
+    ("software development", "sam"),
+    ("mobile app development", "sam"),
+    ("Android iOS application development", "sam"),
+    ("website development RFP", "datagov"),
+    ("software development contractor", "usajobs"),
+    ("mobile application developer", "usajobs"),
+]
+
 
 def _get_json(url: str, headers: dict[str, str] | None = None) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
@@ -76,3 +87,48 @@ def fetch_datagov(query: str = "website development RFP", limit: int = 10) -> li
         }
         for item in data.get("results", [])
     ]
+
+
+def fetch_usajobs(keyword: str = "software developer", limit: int = 10) -> list[dict]:
+    """Search USAJobs for federal IT / development openings.
+
+    Free API key: https://developer.usajobs.gov/
+    Set USAJOBS_API_KEY and USAJOBS_USER_AGENT (your registration email) in .env.
+    """
+    api_key = os.environ.get("USAJOBS_API_KEY", "")
+    user_agent = os.environ.get("USAJOBS_USER_AGENT", "")
+    if not api_key or not user_agent:
+        raise RuntimeError(
+            "USAJOBS_API_KEY and USAJOBS_USER_AGENT are not set. Register at "
+            "https://developer.usajobs.gov/ and add both to .env."
+        )
+    params = urllib.parse.urlencode({
+        "Keyword": keyword,
+        "ResultsPerPage": min(limit, 25),
+        "Page": 1,
+    })
+    data = _get_json(
+        f"https://data.usajobs.gov/api/search?{params}",
+        headers={
+            "Host": "data.usajobs.gov",
+            "User-Agent": user_agent,
+            "Authorization-Key": api_key,
+        },
+    )
+    items = data.get("SearchResult", {}).get("SearchResultItems", [])
+    results = []
+    for wrapped in items[:limit]:
+        item = wrapped.get("MatchedObjectDescriptor", {})
+        locs = item.get("PositionLocation", []) or []
+        location = ", ".join(
+            loc.get("LocationName", "") for loc in locs if loc.get("LocationName")
+        )
+        org = item.get("OrganizationName", "")
+        results.append({
+            "title": item.get("PositionTitle", ""),
+            "organization": org,
+            "url": item.get("PositionURI", "") or item.get("ApplyURI", ""),
+            "posted": item.get("PublicationStartDate", ""),
+            "location": location,
+        })
+    return results

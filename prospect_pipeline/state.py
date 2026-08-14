@@ -7,6 +7,7 @@ from pathlib import Path
 from .models import Lead
 
 LOG_HEADER = ["email", "business_name", "state", "sent_on", "status", "detail"]
+WHATSAPP_LOG_HEADER = ["phone", "business_name", "state", "sent_on", "status", "detail"]
 
 
 def _load_log(path: Path) -> list[dict]:
@@ -34,6 +35,45 @@ def recently_contacted(path: Path, email: str, cooldown_days: int, today: date |
         if sent_on >= cutoff:
             return True
     return False
+
+
+def recently_contacted_whatsapp(
+    path: Path, phone: str, cooldown_days: int, today: date | None = None
+) -> bool:
+    today = today or date.today()
+    cutoff = today - timedelta(days=cooldown_days)
+    phone = phone.strip()
+    for row in _load_log(path):
+        if row.get("status") != "sent":
+            continue
+        if row.get("phone", "").strip() != phone:
+            continue
+        try:
+            sent_on = date.fromisoformat(row.get("sent_on", ""))
+        except ValueError:
+            continue
+        if sent_on >= cutoff:
+            return True
+    return False
+
+
+def record_whatsapp_send(
+    path: Path, lead: Lead, status: str, detail: str = "", on: date | None = None
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_header = not path.exists()
+    with path.open("a", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        if write_header:
+            writer.writerow(WHATSAPP_LOG_HEADER)
+        writer.writerow([
+            lead.phone.strip(),
+            lead.business_name,
+            lead.state,
+            (on or date.today()).isoformat(),
+            status,
+            detail,
+        ])
 
 
 def record_send(path: Path, lead: Lead, status: str, detail: str = "", on: date | None = None) -> None:

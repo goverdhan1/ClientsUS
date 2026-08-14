@@ -32,10 +32,15 @@ class Settings:
     per_state_cap: int
     cooldown_days: int
     send_delay_seconds: float
+    twilio_account_sid: str
+    twilio_auth_token: str
+    twilio_whatsapp_from: str
     leads_csv: Path
     template_path: Path
+    whatsapp_template_path: Path
     state_dir: Path
     outbox_dir: Path
+    reports_dir: Path
 
     @classmethod
     def from_env(cls, root: Path = ROOT) -> "Settings":
@@ -53,10 +58,15 @@ class Settings:
             per_state_cap=int(env.get("PER_STATE_CAP", "5")),
             cooldown_days=int(env.get("COOLDOWN_DAYS", "30")),
             send_delay_seconds=float(env.get("SEND_DELAY_SECONDS", "3")),
+            twilio_account_sid=env.get("TWILIO_ACCOUNT_SID", ""),
+            twilio_auth_token=env.get("TWILIO_AUTH_TOKEN", ""),
+            twilio_whatsapp_from=env.get("TWILIO_WHATSAPP_FROM", ""),
             leads_csv=root / env.get("LEADS_CSV", "data/leads.csv"),
             template_path=root / "prospect_pipeline" / "templates" / "outreach_email.txt",
+            whatsapp_template_path=root / "prospect_pipeline" / "templates" / "outreach_whatsapp.txt",
             state_dir=root / "state",
             outbox_dir=root / "outbox",
+            reports_dir=root / "reports",
         )
 
     def missing_for_send(self) -> list[str]:
@@ -70,6 +80,22 @@ class Settings:
         if not self.sender_postal_address:
             missing.append("SENDER_POSTAL_ADDRESS (CAN-SPAM requires a real postal address in every email)")
         return missing
+
+    def missing_for_whatsapp(self) -> list[str]:
+        missing = []
+        if not self.sender_name:
+            missing.append("SENDER_NAME")
+        if not self.twilio_account_sid:
+            missing.append("TWILIO_ACCOUNT_SID")
+        if not self.twilio_auth_token:
+            missing.append("TWILIO_AUTH_TOKEN")
+        if not self.twilio_whatsapp_from:
+            missing.append("TWILIO_WHATSAPP_FROM (your Twilio WhatsApp-enabled number, E.164)")
+        return missing
+
+    @property
+    def whatsapp_sent_log_path(self) -> Path:
+        return self.state_dir / "whatsapp_sent_log.csv"
 
     @property
     def sent_log_path(self) -> Path:

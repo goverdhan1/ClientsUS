@@ -31,6 +31,9 @@ def select_batch(
         if len(chosen) >= max_count:
             skipped["over_max"] += 1
             continue
+        if not lead.email.strip():
+            skipped["no_email"] = skipped.get("no_email", 0) + 1
+            continue
         key = lead.normalized_email
         if key in seen:
             skipped["duplicate"] += 1
@@ -49,3 +52,44 @@ def select_batch(
         chosen.append(lead)
 
     return chosen, skipped
+
+
+def select_whatsapp_batch(
+    leads: list[Lead],
+    sent_log_path: Path,
+    *,
+    max_count: int,
+    per_state_cap: int,
+    cooldown_days: int,
+) -> tuple[list[Lead], dict[str, int]]:
+    """Pick leads eligible for WhatsApp this run (phone + whatsapp consent)."""
+    seen: set[str] = set()
+    per_state: dict[str, int] = defaultdict(int)
+    chosen: list[Lead] = []
+    skipped: dict[str, int] = defaultdict(int)
+
+    for lead in leads:
+        if len(chosen) >= max_count:
+            skipped["over_max"] += 1
+            continue
+        if lead.validate_for_whatsapp():
+            skipped["invalid"] += 1
+            continue
+        if not lead.phone.strip():
+            skipped["no_phone"] += 1
+            continue
+        key = lead.phone.strip()
+        if key in seen:
+            skipped["duplicate"] += 1
+            continue
+        seen.add(key)
+        if state_mod.recently_contacted_whatsapp(sent_log_path, key, cooldown_days):
+            skipped["cooldown"] += 1
+            continue
+        if per_state[lead.state] >= per_state_cap:
+            skipped["state_cap"] += 1
+            continue
+        per_state[lead.state] += 1
+        chosen.append(lead)
+
+    return chosen, dict(skipped)
