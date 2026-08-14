@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 state/
 outbox/
+reports/
+logs/
 # Real prospect lists contain personal data — keep them out of git.
 data/leads.csv
 

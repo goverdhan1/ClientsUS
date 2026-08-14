@@ -10,9 +10,10 @@ from unittest import mock
 from prospect_pipeline.config import Settings
 from prospect_pipeline.consent import SuppressionList
 from prospect_pipeline.emailer import build_message, render, send_all, write_dry_run
-from prospect_pipeline.leads import select_batch
+from prospect_pipeline.leads import select_batch, select_whatsapp_batch
 from prospect_pipeline.models import Lead, load_leads_csv
 from prospect_pipeline.state import recently_contacted, record_send
+from prospect_pipeline.whatsapp import build_whatsapp_body, normalize_phone
 
 TEMPLATE = (
     "Subject: {services_interest} for {business_name}\n\n"
@@ -34,10 +35,16 @@ def make_settings(root: Path) -> Settings:
         per_state_cap=1,
         cooldown_days=30,
         send_delay_seconds=0,
+        twilio_account_sid="ACtest",
+        twilio_auth_token="token",
+        twilio_whatsapp_from="+14155238886",
         leads_csv=root / "leads.csv",
         template_path=root / "template.txt",
+        whatsapp_template_path=root / "whatsapp.txt",
         state_dir=root / "state",
         outbox_dir=root / "outbox",
+        reports_dir=root / "reports",
+        auto_send=False,
     )
 
 
@@ -201,6 +208,48 @@ class SendAllTests(unittest.TestCase):
                 sent, failures = send_all(settings, messages, delay_seconds=0)
         self.assertEqual(sent, ["u0@example.com", "u2@example.com"])
         self.assertEqual([recipient for recipient, _ in failures], ["u1@example.com"])
+
+
+class WhatsAppTests(unittest.TestCase):
+    WA_TEMPLATE = (
+        "Hi {contact_name}, {sender_name} from {sender_company} — "
+        "{business_name} / {services_interest}."
+    )
+
+    def test_normalize_us_phone(self):
+        self.assertEqual(normalize_phone("4155550199"), "+14155550199")
+        self.assertEqual(normalize_phone("+14155550199"), "+14155550199")
+
+    def test_whatsapp_requires_consent_date(self):
+        lead = make_lead("a@b.com")
+        lead.phone = "+14155550199"
+        self.assertTrue(any("whatsapp_consent_date" in p for p in lead.validate_for_whatsapp()))
+
+    def test_select_whatsapp_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            log = root / "wa_log.csv"
+            ok = make_lead("ok@example.com", "TX")
+            ok.phone = "+14155550101"
+            ok.whatsapp_consent_date = "2026-08-01"
+            no_consent = make_lead("no@example.com", "NY")
+            no_consent.phone = "+14155550102"
+            batch, skipped = select_whatsapp_batch(
+                [ok, no_consent], log, max_count=10, per_state_cap=5, cooldown_days=30
+            )
+        self.assertEqual(len(batch), 1)
+        self.assertEqual(batch[0].phone, "+14155550101")
+        self.assertGreater(skipped.get("invalid", 0), 0)
+
+    def test_build_whatsapp_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = make_settings(Path(tmp))
+            lead = make_lead("x@example.com")
+            lead.phone = "+14155550199"
+            lead.whatsapp_consent_date = "2026-08-01"
+            body = build_whatsapp_body(lead, settings, self.WA_TEMPLATE)
+            self.assertIn("Biz", body)
+            self.assertIn("Sender Co", body)
 
 
 if __name__ == "__main__":

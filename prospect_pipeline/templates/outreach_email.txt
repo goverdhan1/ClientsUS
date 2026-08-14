@@ -1,12 +1,18 @@
-Subject: {services_interest} support for {business_name}
+Subject: {services_interest} for {business_name}
 
 Hi {contact_name},
 
-I noticed {source_phrase}, and it looks like {business_name} may be looking for help with {services_interest}.
+I'm {sender_name} from {sender_company}. I noticed {source_phrase} and wanted to reach out.
 
-I'm {sender_name} from {sender_company}. We design and build websites, custom software, and mobile apps for businesses across the US. If useful, I'd be glad to offer a no-obligation quote or a short call about what you're planning.
+I build websites, custom software, and mobile apps that help businesses run smoother and grow faster:
 
-If this isn't relevant, just reply with "unsubscribe" and I won't contact you again.
+• Websites — Custom-built or WordPress-based sites, tailored to your brand and optimized for speed, SEO, and conversions.
+• Custom Software — End-to-end web applications built around your specific business workflows, from internal tools to full SaaS platforms.
+• Android/iOS Apps — Native and cross-platform mobile apps designed for a smooth user experience across devices.
+
+I work closely with clients from concept to launch, keeping communication simple and turnaround fast. If {business_name} is planning {services_interest}, I'd be glad to offer a no-obligation quote or a brief call.
+
+If this isn't relevant, reply with "unsubscribe" and I won't contact you again.
 
 Best regards,
 {sender_name}

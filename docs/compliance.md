@@ -40,7 +40,26 @@ purchased lists, and guessed addresses are never acceptable inputs.
 
 ## Process
 
-1. `python -m prospect_pipeline dry-run` — review rendered drafts in `outbox/`.
-2. `python -m prospect_pipeline send` — sends after an interactive confirmation.
-3. Record every send (automatic in `state/sent_log.csv`); a 30-day cooldown per
-   address is enforced automatically.
+1. `python -m prospect_pipeline daily-search` — find public US opportunities (scheduled daily).
+2. Review `reports/daily_*.txt` and add consented contacts to `data/leads.csv`.
+3. `python -m prospect_pipeline dry-run` — review rendered email drafts in `outbox/`.
+4. `python -m prospect_pipeline send` — sends after an interactive confirmation.
+5. `python -m prospect_pipeline whatsapp-dry-run` / `whatsapp-send` — same flow for WhatsApp.
+6. Record every send (automatic in `state/sent_log.csv` and `state/whatsapp_sent_log.csv`); a
+   30-day cooldown per address/phone is enforced automatically.
+
+## WhatsApp / SMS (TCPA)
+
+- US law requires **prior express written consent** before marketing texts or WhatsApp messages.
+- Every WhatsApp lead must have `whatsapp_consent_date` set (when they opted in).
+- Include an opt-out path (template says "Reply STOP").
+- Use Twilio's official WhatsApp API — not personal WhatsApp automation (against Meta ToS).
+- For production volume, register a WhatsApp Business sender with Meta via Twilio.
+
+## LinkedIn and social scraping
+
+- Do **not** scrape LinkedIn profiles, export connection lists without consent, or send bulk
+  unsolicited InMails through automation.
+- LinkedIn's User Agreement prohibits scraping and unauthorized bots.
+- Acceptable: manual networking, Sales Navigator with personal messages, inbound leads from your
+  website, and public procurement postings (SAM.gov).
