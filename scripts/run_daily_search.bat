@@ -1,5 +1,5 @@
 @echo off
-REM Run the daily US prospect search. Called by Windows Task Scheduler at 9:00 AM Eastern.
+REM Daily search + auto-email. Called by Windows Task Scheduler at 9:00 AM Eastern.
 setlocal
 cd /d "%~dp0.."
 
@@ -11,7 +11,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [%date% %time%] Starting daily-search >> logs\daily_search.log
+echo [%date% %time%] Starting daily-search with AUTO_SEND >> logs\daily_search.log
 python -m prospect_pipeline daily-search >> logs\daily_search.log 2>&1
 set EXITCODE=%ERRORLEVEL%
 echo [%date% %time%] Finished with exit code %EXITCODE% >> logs\daily_search.log

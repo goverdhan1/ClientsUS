@@ -44,6 +44,7 @@ def make_settings(root: Path) -> Settings:
         state_dir=root / "state",
         outbox_dir=root / "outbox",
         reports_dir=root / "reports",
+        auto_send=False,
     )
 
 

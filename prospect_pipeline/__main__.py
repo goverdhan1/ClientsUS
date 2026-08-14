@@ -84,20 +84,19 @@ def cmd_dry_run(args) -> int:
     return 0
 
 
-def cmd_send(args) -> int:
-    settings = Settings.from_env()
+def _execute_send(settings: Settings, limit: int | None, *, confirm: bool) -> int:
     missing = settings.missing_for_send()
     if missing:
         for item in missing:
             print(f"Missing config: {item}", file=sys.stderr)
         print("Set these in .env (see .env.example) and retry.", file=sys.stderr)
         return 2
-    messages, skipped = _selected_email_messages(settings, args.limit)
+    messages, skipped = _selected_email_messages(settings, limit)
     if not messages:
         print("No eligible leads to email right now.")
         return 0
     print(f"About to send {len(messages)} email(s) from {settings.smtp_user}. Skipped: {skipped}")
-    if not args.yes:
+    if confirm:
         reply = input("Type 'send' to confirm: ").strip().lower()
         if reply != "send":
             print("Aborted.")
@@ -116,6 +115,11 @@ def cmd_send(args) -> int:
         print(f"FAILED {recipient}: {error}", file=sys.stderr)
     print(f"Sent {len(sent)} email(s), {len(failures)} failed. Logged to {settings.sent_log_path}.")
     return 0
+
+
+def cmd_send(args) -> int:
+    settings = Settings.from_env()
+    return _execute_send(settings, args.limit, confirm=not args.yes)
 
 
 def cmd_whatsapp_dry_run(args) -> int:
@@ -223,7 +227,16 @@ def cmd_daily_search(args) -> int:
             f"Leads updated: {sync_summary['added']} new contact(s) added to {settings.leads_csv} "
             f"({sync_summary['skipped']} skipped)."
         )
-    print("\nReview the report and leads.csv, then run 'dry-run' before sending.")
+
+    auto_send = settings.auto_send
+    if args.no_auto_send:
+        auto_send = False
+    elif args.auto_send:
+        auto_send = True
+    if auto_send:
+        print("\nAUTO_SEND enabled — sending emails to eligible new leads...")
+        return _execute_send(settings, args.send_limit, confirm=False)
+    print("\nReview the report and leads.csv, then run 'send' when ready.")
     return 0
 
 
@@ -268,6 +281,9 @@ def main() -> int:
     )
     p_daily.add_argument("--limit", type=int, default=5, help="Max results per query/source")
     p_daily.add_argument("--no-sync", action="store_true", help="Skip auto-updating data/leads.csv")
+    p_daily.add_argument("--auto-send", action="store_true", default=None, help="Send emails after search")
+    p_daily.add_argument("--no-auto-send", action="store_true", help="Do not send emails after search")
+    p_daily.add_argument("--send-limit", type=int, default=None, help="Max emails to send this run")
     p_daily.set_defaults(func=cmd_daily_search)
 
     args = parser.parse_args()

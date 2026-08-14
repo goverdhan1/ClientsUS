@@ -41,11 +41,13 @@ class Settings:
     state_dir: Path
     outbox_dir: Path
     reports_dir: Path
+    auto_send: bool
 
     @classmethod
     def from_env(cls, root: Path = ROOT) -> "Settings":
         load_dotenv(root / ".env")
         env = os.environ
+        auto_send_raw = env.get("AUTO_SEND", "false").strip().lower()
         return cls(
             smtp_host=env.get("SMTP_HOST", "smtp.gmail.com"),
             smtp_port=int(env.get("SMTP_PORT", "587")),
@@ -67,6 +69,7 @@ class Settings:
             state_dir=root / "state",
             outbox_dir=root / "outbox",
             reports_dir=root / "reports",
+            auto_send=auto_send_raw in {"1", "true", "yes", "on"},
         )
 
     def missing_for_send(self) -> list[str]:
